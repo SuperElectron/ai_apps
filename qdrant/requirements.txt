@@ -1,0 +1,7 @@
+qdrant-client
+langchain
+datasets
+cohere
+openai
+langchain-community
+langchain-cohere

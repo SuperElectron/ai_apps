@@ -11,10 +11,11 @@ pip3 install -r requirements.txt
 
 # Files
 
-| File Name                                     | Description                              |
-|-----------------------------------------------|------------------------------------------|
-| 1-return_json.py                              | Shows how to structure the LLM output    |
-| 1-customer_support.py                         | Shows how to structure the LLM output    |
+| File Name                                     | Description                                                          |
+|-----------------------------------------------|----------------------------------------------------------------------|
+| 1-return_json.py                              | Shows how to structure the LLM output                                |
+| 2-customer_support.py                         | Create a simple chatbot with openAI rag (files)                      |
+| 3-gpt-vision.py                               | Using promting and images to detect and classify people with smiles  |
 
 
 # Run

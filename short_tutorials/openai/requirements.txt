@@ -1,1 +1,8 @@
 openai
+# gpt_audio
+textual
+numpy
+pyaudio
+pydub
+sounddevice
+openai[realtime]

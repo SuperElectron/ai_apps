@@ -11,12 +11,21 @@ pip3 install -r requirements.txt
 
 # Files
 
-| File Name                                     | Description                                                          |
-|-----------------------------------------------|----------------------------------------------------------------------|
-| 1-return_json.py                              | Shows how to structure the LLM output                                |
-| 2-customer_support.py                         | Create a simple chatbot with openAI rag (files)                      |
-| 3-gpt-vision.py                               | Using promting and images to detect and classify people with smiles  |
+| File Name                                     | Description                                                         |
+|-----------------------------------------------|---------------------------------------------------------------------|
+| return_json.py                                | Shows how to structure the LLM output                               |
+| customer_support  .py                         | Create a simple chatbot with openAI rag (files)                     |
+| gpt_vision.py                                 | Using promting and images to detect and classify people with smiles |
+| gpt_audio.py                                  | Real-time voice chat with GPT                                       |
 
+__requirements for gpt_audio.py__
+
+```bash
+# mac
+brew install portaudio
+# linux
+sudo apt-get install -y portaudio19-dev
+```
 
 # Run
 

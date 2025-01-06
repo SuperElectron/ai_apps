@@ -113,7 +113,13 @@ def generate(state: AgentState):
 
 # Main entry point
 if __name__ == "__main__":
-    os.environ.setdefault("OPENAI_API_KEY", getpass.getpass("OPENAI_API_KEY:"))
+    from os import getenv
+
+    api_key = getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        os.environ.setdefault("OPENAI_API_KEY", getpass.getpass("OPENAI_API_KEY:"))
+
     retriever_tool = setup_retriever()
     tools = [retriever_tool]
 
@@ -134,4 +140,3 @@ if __name__ == "__main__":
 
     # Output the resulting state
     print(state)
-

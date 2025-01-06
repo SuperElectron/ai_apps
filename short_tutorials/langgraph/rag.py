@@ -24,7 +24,7 @@ def setup_retriever():
     docs = [item for url in urls for item in WebBaseLoader(url).load()]
 
     doc_splits = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-        model_name="gpt-3.5-turbo",
+        model_name="gpt-4o",
         chunk_size=100,
         chunk_overlap=50
     ).split_documents(docs)

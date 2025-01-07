@@ -7,6 +7,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip3 install -r requirements.txt
 ```
+# Credits
+
+- this is a modified tutorial from langchain: https://github.com/langchain-ai/langgraph/blob/main/docs/docs/tutorials/extraction/retries.ipynb
+
 
 # Run
 

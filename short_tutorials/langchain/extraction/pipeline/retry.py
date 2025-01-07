@@ -1,59 +1,16 @@
 import operator
 import uuid
-from typing import (Annotated, Callable, List, Literal, Optional, Sequence, Union)
-from langchain_core.messages import (AIMessage, AnyMessage, BaseMessage, HumanMessage, ToolCall)
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import (AIMessage, AnyMessage, BaseMessage, HumanMessage)
 from langchain_core.prompt_values import PromptValue
 from langchain_core.runnables import (Runnable, RunnableLambda)
-from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ValidationNode
-from langchain_core.language_models import BaseChatModel
-
-
-def bind_validator_with_retries(
-        llm: BaseChatModel, *,
-        tools: list,
-        tool_choice: Optional[str] = None,
-        max_attempts: int = 3) -> Runnable[Union[List[AnyMessage], PromptValue], AIMessage]:
-    """Binds validators + retry logic ensure validity of generated tool calls.
-
-    LLMs that support tool calling are good at generating structured JSON. However, they may
-    not always perfectly follow your requested schema, especially if the schema is nested or
-    has complex validation rules. This method allows you to bind a validation function to
-    the LLM's output, so that any time the LLM generates a message, the validation function
-    is run on it. If the validation fails, the method will retry the LLM with a fallback
-    strategy, the simples being just to add a message to the output with the validation
-    errors and a request to fix them.
-
-    The resulting runnable expects a list of messages as input and returns a single AI message.
-    By default, the LLM can optionally NOT invoke tools, making this easier to incorporate into
-    your existing chat bot. You can specify a tool_choice to force the validator to be run on
-    the outputs.
-
-    Args:
-        llm (Runnable): The llm that will generate the initial messages (and optionally fallba)
-        validator (ValidationNode): The validation logic.
-        retry_strategy (RetryStrategy): The retry strategy to use.
-            Possible keys:
-            - max_attempts: The maximum number of attempts to make.
-            - fallback: The LLM or function to use in case of validation failure.
-            - aggregate_messages: A function to aggregate the messages over multiple turns.
-                Defaults to fetching the last AI message.
-        tool_choice: If provided, always run the validator on the tool output.
-
-    Returns:
-        Runnable: A runnable that can be invoked with a list of messages and returns a single AI message.
-    """
-    bound_llm = llm.bind_tools(tools, tool_choice=tool_choice)
-    retry_strategy = RetryStrategy(max_attempts=max_attempts)
-    validator = ValidationNode(tools)
-    return _bind_validator_with_retries(
-        bound_llm,
-        validator=validator,
-        tool_choice=tool_choice,
-        retry_strategy=retry_strategy,
-    ).with_config(metadata={"retry_strategy": "default"})
+from pydantic import BaseModel, Field, field_validator
+from typing import (Annotated, Callable, List, Literal, Optional, Sequence, Union)
+from typing_extensions import TypedDict
+from reply_strategy import RetryStrategy
 
 
 def _default_aggregator(messages: Sequence[AnyMessage]) -> AIMessage:
@@ -61,22 +18,6 @@ def _default_aggregator(messages: Sequence[AnyMessage]) -> AIMessage:
         if m.type == "ai":
             return m
     raise ValueError("No AI message found in the sequence.")
-
-
-class RetryStrategy(TypedDict, total=False):
-    """The retry strategy for a tool call."""
-
-    max_attempts: int
-    """The maximum number of attempts to make."""
-    fallback: Optional[
-        Union[
-            Runnable[Sequence[AnyMessage], AIMessage],
-            Runnable[Sequence[AnyMessage], BaseMessage],
-            Callable[[Sequence[AnyMessage]], AIMessage],
-        ]
-    ]
-    """The function to use once validation fails."""
-    aggregate_messages: Optional[Callable[[Sequence[AnyMessage]], AIMessage]]
 
 
 def _bind_validator_with_retries(
@@ -89,33 +30,40 @@ def _bind_validator_with_retries(
         retry_strategy: RetryStrategy,
         tool_choice: Optional[str] = None,
 ) -> Runnable[Union[List[AnyMessage], PromptValue], AIMessage]:
-    """Binds a tool validators + retry logic to create a runnable validation graph.
+    """
+    Bind a validator with retries to process messages through an LLM and validator chain.
+    This function establishes a processing pipeline by binding an LLM, retry strategy, and
+    validator with mechanisms for error handling and message aggregation.
 
-    LLMs that support tool calling can generate structured JSON. However, they may not always
-    perfectly follow your requested schema, especially if the schema is nested or has complex
-    validation rules. This method allows you to bind a validation function to the LLM's output,
-    so that any time the LLM generates a message, the validation function is run on it. If
-    the validation fails, the method will retry the LLM with a fallback strategy, the simplest
-    being just to add a message to the output with the validation errors and a request to fix them.
-
-    The resulting runnable expects a list of messages as input and returns a single AI message.
-    By default, the LLM can optionally NOT invoke tools, making this easier to incorporate into
-    your existing chat bot. You can specify a tool_choice to force the validator to be run on
-    the outputs.
-
-    Args:
-        llm (Runnable): The llm that will generate the initial messages (and optionally fallba)
-        validator (ValidationNode): The validation logic.
-        retry_strategy (RetryStrategy): The retry strategy to use.
-            Possible keys:
-            - max_attempts: The maximum number of attempts to make.
-            - fallback: The LLM or function to use in case of validation failure.
-            - aggregate_messages: A function to aggregate the messages over multiple turns.
-                Defaults to fetching the last AI message.
-        tool_choice: If provided, always run the validator on the tool output.
+    Parameters:
+    llm (Union[Runnable[Sequence[AnyMessage], AIMessage], Runnable[Sequence[BaseMessage], BaseMessage]]):
+        A runnable instance representing the language model that processes input messages.
+    validator (ValidationNode):
+        A validation node applied to the processed messages for evaluation.
+    retry_strategy (RetryStrategy):
+        Strategy defining the retry mechanism for processing messages in case of failure.
+    tool_choice (Optional[str]):
+        An optional tool name used within the validation phase to generate specific
+        tool-related responses.
 
     Returns:
-        Runnable: A runnable that can be invoked with a list of messages and returns a single AI message.
+    Runnable[Union[List[AnyMessage], PromptValue], AIMessage]:
+        A runnable chain that processes input messages, validates responses, and applies
+        retry strategies based on configuration.
+
+    Classes:
+    State:
+        Typed dictionary for maintaining the processing state during retries.
+        Attributes:
+            messages: List to hold processed messages with support for appending
+                or overwriting.
+            attempt_number: Tracks the current retry attempt number.
+            initial_num_messages: Holds the initial number of messages
+                before retrying.
+            input_format: Tracks input format as either "list" or "dict".
+
+    Finalizer:
+        A callable wrapper for aggregating generated messages at the final step.
     """
 
     def add_or_overwrite_messages(left: list, right: Union[list, dict]) -> list:
@@ -191,7 +139,6 @@ def _bind_validator_with_retries(
     builder.add_node("validator", validator_runnable)
 
     class Finalizer:
-        """Pick the final message to return from the retry loop."""
 
         def __init__(self, aggregator: Optional[Callable[[list], AIMessage]] = None):
             self._aggregator = aggregator or _default_aggregator
@@ -234,9 +181,7 @@ def _bind_validator_with_retries(
                 return "fallback"
         return "finalizer"
 
-    builder.add_conditional_edges(
-        "validator", route_validation, ["finalizer", "fallback"]
-    )
+    builder.add_conditional_edges("validator", route_validation, ["finalizer", "fallback"])
 
     builder.add_edge("finalizer", END)
 
@@ -254,6 +199,54 @@ def _bind_validator_with_retries(
         """Ensure the output is in the expected format."""
         return x["messages"][-1]
 
-    return (
-            encode | builder.compile().with_config(run_name="ValidationGraph") | decode
-    ).with_config(run_name="ValidateWithRetries")
+    return ((encode |
+             builder.compile().with_config(run_name="ValidationGraph")
+             | decode)
+            .with_config(run_name="ValidateWithRetries"))
+
+
+class Respond(BaseModel):
+    """Use to generate the response. Always use when responding to the user"""
+
+    reason: str = Field(description="Step-by-step justification for the answer.")
+    answer: str
+
+    @field_validator("answer")
+    def reason_contains_apology(cls, answer: str):
+        if "llama" not in answer.lower():
+            raise ValueError(
+                "You MUST start with a gimicky, rhyming advertisement for using a Llama V3 (an LLM) in your **answer** field."
+                " Must be an instant hit. Must be weaved into the answer."
+            )
+
+
+def bind(
+        llm: BaseChatModel, *,
+        tools: list,
+        tool_choice: Optional[str] = None,
+        max_attempts: int = 3) -> Runnable[Union[List[AnyMessage], PromptValue], AIMessage]:
+    """
+        Binds an LLM (Language Learning Model) with a set of tools and establishes a retry mechanism
+        and validation logic for executing tasks. This function connects tools to the LLM while
+        incorporating a strategy for handling retries and validation of tools usage.
+
+        Parameters:
+        llm (BaseChatModel): The language learning model to be bound and configured.
+        tools (list): A list of tools to associate with the LLM for task execution.
+        tool_choice (Optional[str]): Identifier or selection rule for tool usage, if any. Default is None.
+        max_attempts (int): Maximum number of retry attempts for executing tasks. Default is 3.
+
+        Returns:
+        Runnable[Union[List[AnyMessage], PromptValue], AIMessage]: A configured runnable object that
+        integrates the LLM with the specified tools, retry strategy, and validation logic.
+    """
+    bound_llm = llm.bind_tools(tools, tool_choice=tool_choice)
+    retry_strategy = RetryStrategy(max_attempts=max_attempts)
+    validator = ValidationNode(tools)
+
+    return _bind_validator_with_retries(
+        bound_llm,
+        validator=validator,
+        tool_choice=tool_choice,
+        retry_strategy=retry_strategy,
+    ).with_config(metadata={"retry_strategy": "default"})

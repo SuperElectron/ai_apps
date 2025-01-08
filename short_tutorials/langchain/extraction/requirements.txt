@@ -2,3 +2,6 @@ langchain_openai
 langchain-anthropic
 langgraph
 loguru
+
+# part 2
+jsonpatch

@@ -10,7 +10,7 @@ from langgraph.prebuilt import ValidationNode
 from pydantic import BaseModel, Field, field_validator
 from typing import (Annotated, Callable, List, Literal, Optional, Sequence, Union)
 from typing_extensions import TypedDict
-from reply_strategy import RetryStrategy
+from pipeline.reply_strategy import RetryStrategy
 
 
 def _default_aggregator(messages: Sequence[AnyMessage]) -> AIMessage:

@@ -120,9 +120,9 @@ def run_3():
 
 
 if __name__ == "__main__":
-    logger.info("Running DEMO1")
-    run_1()
+    # logger.info("Running DEMO1")
+    # run_1()
     logger.info("Running DEMO2")
     run_2()
-    logger.info("Running DEMO3")
-    run_3()
+    # logger.info("Running DEMO3")
+    # run_3()
